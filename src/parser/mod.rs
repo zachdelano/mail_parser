@@ -3,6 +3,18 @@ use crate::models::ParsedEmail;
 use scanner::Scanner;
 use std::collections::VecDeque;
 
+// TODO: the problem with this implementation is that
+// it advances the iterator... can we pass a copy of
+// the iterator to `check_escaped`?
+fn check_escaped(scanner: &mut Scanner) -> bool {
+    let mut count = 0;
+    while let Some((_, '\\')) = scanner.peek_char() {
+        scanner.next_char();
+        count += 1;
+    }
+    count % 2 != 0
+}
+
 /// The main entry point for the parsing logic.
 pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
     if !input.contains('@') {
@@ -14,39 +26,27 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
         ..Default::default()
     };
 
-    // Use the logic from scanner.rs to fill the fields
-    // Strategy: 
-    // 1. Scan for comments/FWS at the end
-    // 2. Locate the domain (up to the last @)
-    // 3. Extract local part and plus-tag
-    // 4. Extract display name if brackets exist
     let mut comment_level = 0;
     let mut comment_idx = 0;
     let mut scanner = Scanner::new(input);
     let mut comments_raw: Vec<VecDeque<char>> = vec![];
-    while let Some((idx, ch)) = scanner.next_char() {
-        println!("Char: {:?}, Index: {}, Level: {}", ch, idx, comment_level);
+    while let Some((_idx, ch)) = scanner.next_char() {
         match ch {
             ')' => {
-                let preceded_by_backslash = scanner.peek_char()
-                    .map(|(_, next_ch)| *next_ch == '\\')
-                    .unwrap_or(false);
-                println!("  Is escaped? {}", preceded_by_backslash);
-                if !preceded_by_backslash {
+                let is_escaped = check_escaped(&mut scanner);
+                if !is_escaped {
                     comment_level += 1;
                     if comments_raw.len() < (comment_idx + 1) {
                         comments_raw.push(VecDeque::new());
                     }
                 }
-                if comment_level > 1 {
+                if comment_level > 1 || (comment_level == 1 && is_escaped) {
                     comments_raw[comment_idx].push_front(ch);
                 }
             }
             '(' => {
-                let preceded_by_backslash = scanner.peek_char()
-                    .map(|(_, next_ch)| *next_ch == '\\')
-                    .unwrap_or(false);
-                if comment_level > 0 && !preceded_by_backslash {
+                let is_escaped = check_escaped(&mut scanner);
+                if comment_level > 0 && !is_escaped {
                     comment_level -= 1;
                     if comment_level == 0 {
                         comment_idx += 1;
@@ -67,7 +67,7 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
         .into_iter()
         .map(|deque| deque.iter().collect::<String>())
         .collect();
-    println!("Comments: {:?}", comments);
+
     email.comments = comments;
     Ok(email)
 }
