@@ -3,10 +3,8 @@ use crate::models::ParsedEmail;
 use scanner::Scanner;
 use std::collections::VecDeque;
 
-// TODO: the problem with this implementation is that
-// it advances the iterator... can we pass a copy of
-// the iterator to `check_escaped`?
-fn check_escaped(scanner: &mut Scanner) -> bool {
+fn check_escaped(s: &Scanner) -> bool {
+    let mut scanner = s.clone();
     let mut count = 0;
     while let Some((_, '\\')) = scanner.peek_char() {
         scanner.next_char();
@@ -33,7 +31,7 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
     while let Some((_idx, ch)) = scanner.next_char() {
         match ch {
             ')' => {
-                let is_escaped = check_escaped(&mut scanner);
+                let is_escaped = check_escaped(&scanner);
                 if !is_escaped {
                     comment_level += 1;
                     if comments_raw.len() < (comment_idx + 1) {
@@ -45,7 +43,7 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
                 }
             }
             '(' => {
-                let is_escaped = check_escaped(&mut scanner);
+                let is_escaped = check_escaped(&scanner);
                 if comment_level > 0 && !is_escaped {
                     comment_level -= 1;
                     if comment_level == 0 {
