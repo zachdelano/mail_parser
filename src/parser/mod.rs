@@ -63,6 +63,7 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
     }
     let comments: Vec<String> = comments_raw
         .into_iter()
+        .rev()
         .map(|deque| deque.iter().collect::<String>())
         .collect();
 
