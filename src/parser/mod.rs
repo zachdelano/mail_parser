@@ -29,6 +29,8 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
     let mut scanner = Scanner::new(input);
     let mut comments_raw: Vec<VecDeque<char>> = vec![];
     while let Some((_idx, ch)) = scanner.next_char() {
+        // `comment_level > 0` means that a comment block has already been encountered
+        //    and not yet closed.
         match ch {
             ')' => {
                 let is_escaped = check_escaped(&scanner);
