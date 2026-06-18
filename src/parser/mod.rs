@@ -11,6 +11,8 @@ fn check_escaped(scanner: &mut Scanner) -> (bool, i32) {
         count += 1;
     }
     // return whether escaped, then the number of escaped `\` characters encountered 
+    // TODO: count / 2 is losing the escaping backslash (e.g. in \)). 
+    //    should we return the full count instead to preserve everything?
     (count % 2 != 0, count / 2)
 }
 
@@ -67,6 +69,17 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
                     }
                 }
             }
+            '\\' => {
+                let (is_escaped, backslash_count) = check_escaped(&mut scanner);
+                if comment_level > 0 {
+                    if is_escaped {
+                        comments_raw[comment_idx].push_front(ch);
+                    }
+                    for _ in 0..backslash_count {
+                        comments_raw[comment_idx].push_front('\\')
+                    }
+                }
+            }
             _ => {
                 if comment_level > 0 {
                     comments_raw[comment_idx].push_front(ch);
@@ -79,6 +92,9 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
         .rev()
         .map(|deque| deque.iter().collect::<String>())
         .collect();
+
+    // TODO: should we unescape characters here (e.g. \) -> )) or keep them raw?
+    //    the current tests expect raw backslashes.
 
     email.comments = comments;
     Ok(email)
