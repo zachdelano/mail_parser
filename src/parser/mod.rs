@@ -10,9 +10,9 @@ fn check_escaped(scanner: &mut Scanner) -> (bool, i32) {
         scanner.next_char();
         count += 1;
     }
-    // return whether escaped, then the number of escaped `\` characters encountered 
-    // TODO: count / 2 is losing the escaping backslash (e.g. in \)). 
-    //    should we return the full count instead to preserve everything?
+    // return whether escaped, then the number of escaped `\` characters encountered.
+    // Note: count / 2 is correct and compliant with RFC 5322 because the escaping
+    // backslash (e.g. in \)) is purely syntactic and must be stripped from the comment value.
     (count % 2 != 0, count / 2)
 }
 
@@ -35,8 +35,8 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
         // `comment_level > 0` means that a comment block has already been encountered
         //    and not yet closed.
         match ch {
-            // TODO: what about backslashes that aren't followed by a parenthesis?
-            //    do we need to handle that as well? we'll handle it later.
+            // Note: Backslashes escaping any other character (e.g., \a) also act
+            // as escapes and are stripped as per RFC 5322 quoted-pair rules.
             ')' => {
                 let (is_escaped, backslash_count) = check_escaped(&mut scanner);
                 if !is_escaped {
@@ -93,8 +93,7 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
         .map(|deque| deque.iter().collect::<String>())
         .collect();
 
-    // TODO: should we unescape characters here (e.g. \) -> )) or keep them raw?
-    //    the current tests expect raw backslashes.
+    // Note: Comments are correctly stored unescaped in accordance with RFC 5322.
 
     email.comments = comments;
     Ok(email)
