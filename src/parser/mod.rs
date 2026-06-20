@@ -31,6 +31,9 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
     let mut comment_idx = 0;
     let mut scanner = Scanner::new(input);
     let mut comments_raw: Vec<VecDeque<char>> = vec![];
+    let mut domain_raw: VecDeque<char> = VecDeque::new();
+    let mut local_raw: VecDeque<char> = VecDeque::new();
+    let mut encountered_at_sign = false;
     while let Some((_idx, ch)) = scanner.next_char() {
         // `comment_level > 0` means that a comment block has already been encountered
         //    and not yet closed.
@@ -80,9 +83,22 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
                     }
                 }
             }
+            '@' => {
+                let (is_escaped, backslash_count) = check_escaped(&mut scanner);
+                if !is_escaped && comment_level == 0 && !encountered_at_sign {
+                    encountered_at_sign = true
+                }
+                for _ in 0..backslash_count {
+                    comments_raw[comment_idx].push_front('\\')
+                }
+            }
             _ => {
                 if comment_level > 0 {
                     comments_raw[comment_idx].push_front(ch);
+                } else if encountered_at_sign {
+                    local_raw.push_front(ch);
+                } else {
+                    domain_raw.push_front(ch);
                 }
             }
         }
@@ -95,6 +111,10 @@ pub fn parse_address(input: &str) -> Result<ParsedEmail, String> {
 
     // Note: Comments are correctly stored unescaped in accordance with RFC 5322.
 
+    let domain: String = domain_raw.into_iter().collect();
+    let local: String = local_raw.into_iter().collect();
     email.comments = comments;
+    email.domain = domain;
+    email.local_part = local;
     Ok(email)
 }
